@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Image Optimizer - Working Solution</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        /* Simplified CSS for reliability */
+        :root {
+            --primary: #4A90E2;
+            --secondary: #35495E;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .upload-area {
+            border: 2px dashed var(--primary);
+            padding: 2rem;
+            text-align: center;
+            margin: 2rem 0;
+            border-radius: 10px;
+        }
+
+        .previews {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 2rem;
+        }
+
+        .preview-img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+
+        .size-info {
+            color: var(--secondary);
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="upload-area" id="dropZone">
+        <input type="file" id="fileInput" accept="image/*" hidden>
+        <label for="fileInput" style="cursor: pointer;">
+            <i class="fas fa-cloud-upload-alt fa-3x"></i>
+            <h2>Click or Drag to Upload Image</h2>
+        </label>
+        <div>
+            <label>Quality: <span id="qualityValue">80</span>%</label>
+            <input type="range" id="quality" min="1" max="100" value="80">
+            <button onclick="startCompression()">Compress Now</button>
+        </div>
+    </div>
+
+    <div class="previews">
+        <div>
+            <h3>Original</h3>
+            <img id="originalPreview" class="preview-img">
+            <div class="size-info" id="originalSize"></div>
+        </div>
+        <div>
+            <h3>Compressed</h3>
+            <img id="compressedPreview" class="preview-img">
+            <div class="size-info" id="compressedSize"></div>
+            <a id="downloadLink" style="display: none;">
+                <button>Download</button>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // File Handling
+        let currentFile = null;
+
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            handleFile(e.target.files[0]);
+        });
+
+        // Drag & Drop
+        const dropZone = document.getElementById('dropZone');
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.backgroundColor = '#f8f9fa';
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.backgroundColor = '';
+            handleFile(e.dataTransfer.files[0]);
+        });
+
+        // Core Functionality
+        function handleFile(file) {
+            if (!file || !file.type.startsWith('image/')) {
+                alert('Please select an image file');
+                return;
+            }
+
+            currentFile = file;
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                document.getElementById('originalPreview').src = e.target.result;
+                document.getElementById('originalSize').textContent = 
+                    `Size: ${formatSize(file.size)}`;
+                resetOutput();
+            };
+            
+            reader.readAsDataURL(file);
+        }
+
+        function startCompression() {
+            if (!currentFile) {
+                alert('Please select an image first');
+                return;
+            }
+
+            const quality = document.getElementById('quality').value / 100;
+            const img = new Image();
+            
+            img.onload = () => {
+                compressImage(img, quality);
+            };
+            
+            img.onerror = () => {
+                alert('Error loading image');
+            };
+            
+            img.src = URL.createObjectURL(currentFile);
+        }
+
+        function compressImage(img, quality) {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+
+            canvas.toBlob((blob) => {
+                if (!blob) {
+                    alert('Compression failed');
+                    return;
+                }
+
+                const url = URL.createObjectURL(blob);
+                document.getElementById('compressedPreview').src = url;
+                document.getElementById('compressedSize').textContent = 
+                    `Size: ${formatSize(blob.size)} (${Math.round((1 - blob.size/currentFile.size)*100)}% reduction)`;
+
+                const downloadLink = document.getElementById('downloadLink');
+                downloadLink.href = url;
+                downloadLink.download = `compressed_${currentFile.name}`;
+                downloadLink.style.display = 'block';
+            }, currentFile.type, quality);
+        }
+
+        // Utilities
+        function formatSize(bytes) {
+            const units = ['B', 'KB', 'MB'];
+            let size = bytes;
+            let unit = 0;
+
+            while (size >= 1024 && unit < units.length - 1) {
+                size /= 1024;
+                unit++;
+            }
+
+            return `${size.toFixed(2)} ${units[unit]}`;
+        }
+
+        function resetOutput() {
+            document.getElementById('compressedPreview').src = '';
+            document.getElementById('compressedSize').textContent = '';
+            document.getElementById('downloadLink').style.display = 'none';
+        }
+
+        // Quality Update
+        document.getElementById('quality').addEventListener('input', (e) => {
+            document.getElementById('qualityValue').textContent = e.target.value;
+        });
+    </script>
+</body>
+</html>
